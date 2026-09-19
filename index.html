@@ -1,0 +1,918 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Конвертер ключей AmneziaVPN</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%94%91%3C/text%3E%3C/svg%3E">
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #EDF0F3;
+    --surface: #FFFFFF;
+    --field: #F6F8FA;
+    --ink: #15202B;
+    --muted: #5E6B78;
+    --line: #C9D1D9;
+    --accent: #A35A0C;
+    --accent-ink: #FFFFFF;
+    --accent-soft: #F7EAD9;
+    --danger: #B42318;
+    --danger-soft: #FCE9E7;
+    --sans: "Segoe UI Variable Text", "SF Pro Text", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
+    --mono: "JetBrains Mono", "Cascadia Mono", "SF Mono", ui-monospace, Menlo, Consolas, "Liberation Mono", monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg: #0E151C;
+      --surface: #152029;
+      --field: #0F1820;
+      --ink: #E4EAF0;
+      --muted: #8D9BA8;
+      --line: #2A3845;
+      --accent: #F0AE4E;
+      --accent-ink: #15202B;
+      --accent-soft: #33271A;
+      --danger: #FF8B7B;
+      --danger-soft: #3A1F1C;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #0E151C;
+    --surface: #152029;
+    --field: #0F1820;
+    --ink: #E4EAF0;
+    --muted: #8D9BA8;
+    --line: #2A3845;
+    --accent: #F0AE4E;
+    --accent-ink: #15202B;
+    --accent-soft: #33271A;
+    --danger: #FF8B7B;
+    --danger-soft: #3A1F1C;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font: 15px/1.5 var(--sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .page { max-width: 1320px; margin: 0 auto; padding: 32px 24px 48px; }
+
+  .intro h1 {
+    margin: 0 0 8px;
+    font-size: 28px;
+    line-height: 1.2;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+  }
+  .intro p { margin: 0; max-width: 72ch; color: var(--muted); }
+
+  .workspace { display: grid; gap: 16px; margin-top: 24px; }
+  @media (min-width: 1040px) {
+    .workspace { grid-template-columns: minmax(0, 1fr) 272px minmax(0, 1fr); gap: 20px; }
+  }
+
+  h2 { margin: 0; font-size: 17px; line-height: 1.3; font-weight: 650; }
+
+  /* Панели входа и выхода */
+  .panel {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+    padding: 16px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+  }
+  .panel-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
+  .panel-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; }
+  .hint { font-size: 13px; color: var(--muted); }
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
+
+  textarea {
+    flex: 1;
+    width: 100%;
+    min-height: 260px;
+    padding: 12px;
+    resize: vertical;
+    color: var(--ink);
+    background: var(--field);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    font: 13px/1.55 var(--mono);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+  @media (min-width: 1040px) { textarea { min-height: 440px; } }
+  textarea:focus-visible { outline: none; border-color: var(--accent); }
+  textarea::placeholder, .field input::placeholder { color: var(--muted); opacity: 1; }
+  textarea.key { word-break: break-all; } /* ключ vpn:// переносится ровно, а не по дефисам */
+  textarea.drag { border-style: dashed; border-color: var(--accent); background: var(--accent-soft); }
+  #output.stale { opacity: 0.45; }
+
+  /* Радиокнопки форматов */
+  .choice { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; border: 0; min-width: 0; }
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+  .opt {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 11px 4px 8px;
+    font-size: 13px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .opt input { margin: 0; accent-color: var(--accent); cursor: pointer; }
+  .opt:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+  .opt:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .opt input:focus-visible { outline: none; }
+
+  /* Кнопки */
+  .btn {
+    height: 36px;
+    padding: 0 14px;
+    color: var(--ink);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    font: 500 14px/1 var(--sans);
+    cursor: pointer;
+  }
+  .btn:hover:not(:disabled) { border-color: var(--muted); }
+  .btn.primary { color: var(--accent-ink); background: var(--accent); border-color: var(--accent); }
+  .btn.primary:hover:not(:disabled) { filter: brightness(1.07); }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  /* Средняя колонка: параметры и маршрут адреса */
+  .tunnel { display: flex; flex-direction: column; gap: 18px; min-width: 0; padding: 4px 0; }
+  @media (min-width: 1040px) { .tunnel { padding-top: 20px; } }
+  .fields { display: grid; gap: 12px; }
+  @media (max-width: 1039px) {
+    .fields { grid-template-columns: minmax(0, 1fr) 128px; }
+    .field-name { grid-column: 1 / -1; }
+  }
+  .field { display: grid; gap: 4px; }
+  .field span { font-size: 13px; color: var(--muted); }
+  .field input {
+    width: 100%;
+    height: 38px;
+    padding: 0 10px;
+    color: var(--ink);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    font: 15px var(--mono);
+  }
+  .field input:focus-visible { outline: none; border-color: var(--accent); }
+  .field input[aria-invalid="true"] { border-color: var(--danger); }
+  #name { font-family: var(--sans); }
+  .note { margin: -6px 0 0; font-size: 13px; color: var(--muted); }
+
+  .route { display: grid; gap: 10px; padding: 2px 0 2px 14px; border-left: 2px solid var(--line); }
+  .route.changed { border-left-color: var(--accent); }
+  .route-row { display: grid; gap: 2px; }
+  .route-label { font-size: 13px; color: var(--muted); }
+  .addr {
+    font: 600 19px/1.3 var(--mono);
+    font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
+  }
+  .route.changed .addr.old { color: var(--muted); font-weight: 500; }
+  .addr.new { color: var(--accent); }
+
+  .meta { display: grid; gap: 6px; margin: 0; font-size: 14px; }
+  .meta div { display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: 8px; }
+  .meta dt { color: var(--muted); }
+  .meta dd { margin: 0; overflow-wrap: anywhere; }
+
+  .status { display: grid; gap: 8px; font-size: 14px; }
+  .status:empty { display: none; }
+  .msg { margin: 0; padding: 8px 10px; border-radius: 6px; }
+  .msg.error { color: var(--danger); background: var(--danger-soft); }
+  .msg.warn { color: var(--ink); background: var(--accent-soft); }
+  .msg.pending { color: var(--muted); background: var(--field); }
+
+  [hidden] { display: none !important; }
+
+  @media (max-width: 560px) {
+    .page { padding: 20px 14px 32px; }
+    .intro h1 { font-size: 24px; }
+  }
+</style>
+</head>
+<body>
+<main class="page">
+  <header class="intro">
+    <h1>Конвертер ключей AmneziaVPN</h1>
+    <p>Меняет IP и порт сервера в ключе и переводит его между форматами: ссылка vpn:// для AmneziaVPN, JSON и конфиг .conf для AmneziaWG и WireGuard. Всё считается прямо в браузере — ключи никуда не отправляются.</p>
+  </header>
+
+  <div class="workspace">
+    <section class="panel" aria-labelledby="in-title">
+      <div class="panel-head">
+        <h2 id="in-title">Вход</h2>
+        <fieldset class="choice">
+          <legend class="sr-only">Формат входа</legend>
+          <label class="opt"><input type="radio" name="in" value="auto" checked> Авто</label>
+          <label class="opt"><input type="radio" name="in" value="link"> vpn://</label>
+          <label class="opt"><input type="radio" name="in" value="json"> JSON</label>
+          <label class="opt"><input type="radio" name="in" value="conf"> .conf</label>
+        </fieldset>
+      </div>
+      <textarea id="input" spellcheck="false" autocomplete="off" autocapitalize="off"
+        aria-labelledby="in-title"
+        placeholder="Вставьте ключ vpn://…, JSON или конфиг с [Interface] и [Peer] — или перетащите сюда файл .vpn, .json, .conf"></textarea>
+      <div class="panel-foot">
+        <span class="hint" id="detected"></span>
+        <div class="actions">
+          <button type="button" class="btn" id="open">Открыть файл</button>
+          <button type="button" class="btn" id="clear">Очистить</button>
+        </div>
+      </div>
+      <input type="file" id="file" accept=".vpn,.json,.conf,.txt,text/plain,application/json" hidden>
+    </section>
+
+    <section class="tunnel" aria-labelledby="params-title">
+      <h2 id="params-title">Параметры</h2>
+      <div class="fields">
+        <label class="field">
+          <span>Новый IP</span>
+          <input id="ip" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="не менять">
+        </label>
+        <label class="field">
+          <span>Новый порт</span>
+          <input id="port" type="text" inputmode="numeric" autocomplete="off" placeholder="не менять">
+        </label>
+        <label class="field field-name">
+          <span>Имя сервера</span>
+          <input id="name" type="text" autocomplete="off" placeholder="не менять">
+        </label>
+      </div>
+      <p class="note">Пустое поле — значение остаётся как в ключе.</p>
+
+      <div class="route" id="route" hidden>
+        <div class="route-row">
+          <span class="route-label" id="route-old-label">адрес сервера</span>
+          <output class="addr old" id="addr-old"></output>
+        </div>
+        <div class="route-row" id="row-new" hidden>
+          <span class="route-label">стало</span>
+          <output class="addr new" id="addr-new"></output>
+        </div>
+      </div>
+
+      <dl class="meta" id="meta" hidden>
+        <div><dt>Сервер</dt><dd id="m-name"></dd></div>
+        <div><dt>Протоколы</dt><dd id="m-proto"></dd></div>
+        <div id="m-client-row"><dt>Клиент</dt><dd id="m-client"></dd></div>
+      </dl>
+
+      <div class="status" id="status" role="status" aria-live="polite"></div>
+    </section>
+
+    <section class="panel" aria-labelledby="out-title">
+      <div class="panel-head">
+        <h2 id="out-title">Выход</h2>
+        <fieldset class="choice">
+          <legend class="sr-only">Формат выхода</legend>
+          <label class="opt"><input type="radio" name="out" value="link" checked> vpn://</label>
+          <label class="opt"><input type="radio" name="out" value="json"> JSON</label>
+          <label class="opt"><input type="radio" name="out" value="conf"> .conf</label>
+        </fieldset>
+      </div>
+      <textarea id="output" readonly spellcheck="false" aria-labelledby="out-title"
+        placeholder="Здесь появится результат"></textarea>
+      <div class="panel-foot">
+        <span class="hint" id="out-hint"></span>
+        <div class="actions">
+          <button type="button" class="btn primary" id="copy" disabled>Копировать</button>
+          <button type="button" class="btn" id="download" disabled>Скачать .vpn</button>
+        </div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<script id="core">
+/*
+  Ядро конвертера — та же логика, что в консольной версии amnezia-key.js.
+  vpn:// = base64url без «=» от qCompress(JSON): 4 байта длины (big-endian) + zlib.
+*/
+(function () {
+  'use strict';
+
+  const FORMATS = ['link', 'json', 'conf'];
+
+  // Параметры обфускации AmneziaWG — тот же список, что в клиенте (configKeys.h)
+  const AWG_KEYS = ['Jc', 'Jmin', 'Jmax', 'S1', 'S2', 'S3', 'S4', 'H1', 'H2', 'H3', 'H4',
+    'I1', 'I2', 'I3', 'I4', 'I5', 'HeaderProtectionKey', 'ContentPaddingAddition',
+    'RekeyAfterTime', 'RekeyTimeout', 'RejectAfterTime', 'KeepaliveTimeout',
+    'MaxHandshakeAttempts', 'RandomTrailers', 'DisableCookies'];
+
+  const ENDPOINT_RE = /^([ \t]*Endpoint[ \t]*=[ \t]*)(\[[^\]]*\]|[^\s:]+)(?::(\d+))?[ \t]*$/mi;
+
+  class UserError extends Error {
+    constructor(message, field) {
+      super(message);
+      this.name = 'UserError';
+      this.field = field;
+    }
+  }
+  function fail(message, field) { throw new UserError(message, field); }
+
+  const sortKeys = (o) => Object.fromEntries(Object.entries(o).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
+  const fmtHost = (h) => (h.includes(':') ? `[${h}]` : h);
+
+  // ---------- base64url и zlib ----------
+
+  function b64urlDecode(s) {
+    let b64 = s.replace(/-/g, '+').replace(/_/g, '/');
+    if (b64.length % 4 === 1) fail('ключ повреждён: неверная длина');
+    b64 += '='.repeat((4 - (b64.length % 4)) % 4);
+    const bin = atob(b64);
+    const out = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  }
+
+  function b64urlEncode(bytes) {
+    let bin = '';
+    for (let i = 0; i < bytes.length; i += 0x8000) {
+      bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+    }
+    return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+
+  function requireStreams() {
+    if (typeof CompressionStream === 'undefined' || typeof DecompressionStream === 'undefined') {
+      fail('этот браузер не умеет сжимать данные: нужен Chrome или Edge 80+, Firefox 113+ или Safari 16.4+');
+    }
+  }
+
+  async function pipeThrough(bytes, stream) {
+    const res = new Response(new Blob([bytes]).stream().pipeThrough(stream));
+    return new Uint8Array(await res.arrayBuffer());
+  }
+
+  // ---------- форматы ----------
+
+  function detectFormat(text) {
+    const t = text.trim();
+    if (/^vpn:\/\//i.test(t)) return 'link';
+    if (t.startsWith('{')) return 'json';
+    if (/^[ \t]*\[Interface\]/mi.test(t) && /^[ \t]*\[Peer\]/mi.test(t)) return 'conf';
+    if (/^[A-Za-z0-9_-]{32,}$/.test(t)) return 'link'; // ключ без префикса vpn://
+    return fail('не удалось определить формат: нужен ключ vpn://…, JSON или конфиг с [Interface] и [Peer]');
+  }
+
+  async function decodeLink(text) {
+    // Qt пропускает символы вне алфавита base64url — делаем так же
+    const clean = text.trim().replace(/^vpn:\/\//i, '').replace(/[^A-Za-z0-9_-]/g, '');
+    if (!clean) fail('ключ пустой');
+    const buf = b64urlDecode(clean);
+    let data = null;
+    if (buf.length > 4) {
+      requireStreams();
+      try { data = await pipeThrough(buf.subarray(4), new DecompressionStream('deflate')); } catch { data = null; }
+    }
+    if (!data) data = buf; // приложение принимает и несжатый JSON
+    try {
+      return JSON.parse(new TextDecoder().decode(data));
+    } catch {
+      return fail('ключ повреждён или это не ключ AmneziaVPN');
+    }
+  }
+
+  async function encodeLink(cfg) {
+    requireStreams();
+    const json = new TextEncoder().encode(JSON.stringify(cfg, null, 4) + '\n');
+    const packed = await pipeThrough(json, new CompressionStream('deflate'));
+    const out = new Uint8Array(4 + packed.length);
+    new DataView(out.buffer).setUint32(0, json.length, false); // длина в байтах, big-endian
+    out.set(packed, 4);
+    return 'vpn://' + b64urlEncode(out);
+  }
+
+  function parseJson(text) {
+    try {
+      return JSON.parse(text);
+    } catch (e) {
+      return fail(`некорректный JSON: ${e.message}`);
+    }
+  }
+
+  // conf -> JSON так же, как импорт .conf в самом приложении
+  function fromConf(text) {
+    const conf = text.replace(/\r/g, '').trimEnd() + '\n';
+    const map = {};
+    for (const raw of conf.split('\n')) {
+      const line = raw.trim();
+      if (!line || line.startsWith('#') || /^\[.*\]$/.test(line)) continue;
+      const i = line.indexOf('=');
+      if (i > 0) map[line.slice(0, i).trim()] = line.slice(i + 1).trim();
+    }
+
+    const ep = readEndpoint(conf);
+    if (!ep) fail('в конфиге нет строки Endpoint = адрес:порт');
+    for (const k of ['PrivateKey', 'Address', 'PublicKey']) {
+      if (!map[k]) fail(`в конфиге нет обязательного параметра ${k}`);
+    }
+    const port = ep.port || 51820;
+
+    const lc = {};
+    for (const k of AWG_KEYS) if (map[k]) lc[k] = map[k];
+    const proto = Object.keys(lc).length ? 'awg' : 'wireguard';
+
+    Object.assign(lc, {
+      allowed_ips: (map.AllowedIPs || '').split(/\s*,\s*/).filter(Boolean),
+      client_ip: map.Address,
+      client_priv_key: map.PrivateKey,
+      config: conf,
+      hostName: ep.host,
+      mtu: map.MTU || '1376',
+      port,
+      server_pub_key: map.PublicKey,
+    });
+    if (map.PersistentKeepalive) lc.persistent_keep_alive = map.PersistentKeepalive;
+    if (map.PresharedKey || map.PreSharedKey) lc.psk_key = map.PresharedKey || map.PreSharedKey;
+
+    const cfg = {
+      containers: [sortKeys({
+        container: `amnezia-${proto}`,
+        [proto]: {
+          isThirdPartyConfig: true,
+          last_config: JSON.stringify(sortKeys(lc), null, 4) + '\n',
+          port: String(port),
+          transport_proto: 'udp',
+        },
+      })],
+      defaultContainer: `amnezia-${proto}`,
+      description: '',
+      hostName: ep.host,
+    };
+    const dns = (map.DNS || '').match(/\b\d{1,3}(?:\.\d{1,3}){3}\b/g) || [];
+    if (dns.length >= 2) [cfg.dns1, cfg.dns2] = dns;
+    return sortKeys(cfg);
+  }
+
+  // ---------- протоколы внутри ключа ----------
+
+  function readEndpoint(text) {
+    const m = ENDPOINT_RE.exec(text || '');
+    return m ? { host: m[2].replace(/^\[|\]$/g, ''), port: m[3] ? Number(m[3]) : undefined } : null;
+  }
+
+  // Все протоколы ключа, у которых есть готовый клиентский конфиг (last_config)
+  function protocols(cfg) {
+    const list = [];
+    for (const c of Array.isArray(cfg.containers) ? cfg.containers : []) {
+      for (const [name, p] of Object.entries(c || {})) {
+        if (name === 'container' || !p || typeof p !== 'object' || p.last_config == null || p.last_config === '') continue;
+        let lc;
+        try { lc = typeof p.last_config === 'string' ? JSON.parse(p.last_config) : p.last_config; } catch { continue; }
+        if (!lc || typeof lc !== 'object') continue;
+        const isWg = typeof lc.config === 'string' && /\[Interface\]/i.test(lc.config) && /\[Peer\]/i.test(lc.config);
+        list.push({ container: c.container || name, p, lc, isWg });
+      }
+    }
+    return list;
+  }
+
+  // last_config — строка: с отступами (AmneziaVPN 4.x) или компактная (5.x); стиль сохраняем
+  function saveLastConfig(e) {
+    const old = e.p.last_config;
+    e.p.last_config = typeof old === 'string' && !old.includes('\n')
+      ? JSON.stringify(e.lc)
+      : JSON.stringify(e.lc, null, 4) + '\n';
+  }
+
+  function replaceHost(value, from, to) {
+    // RegExp из строки: старые браузеры без lookbehind не сломают разбор всего скрипта
+    const re = new RegExp(`(?<![\\w.-])${from.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\w.-])`, 'g');
+    const walk = (x) => {
+      if (typeof x === 'string') return x.replace(re, () => to);
+      if (Array.isArray(x)) return x.map(walk);
+      if (x && typeof x === 'object') {
+        for (const k of Object.keys(x)) x[k] = walk(x[k]);
+      }
+      return x;
+    };
+    return walk(value);
+  }
+
+  function applyChanges(cfg, { ip, port }, warnings) {
+    const rootHost = cfg.hostName;
+    const entries = protocols(cfg);
+    if ((ip || port) && !entries.length && !rootHost) {
+      warnings.push('в ключе нет адреса сервера — менять нечего (возможно, это ключ Amnezia Premium или Free)');
+    }
+
+    for (const e of entries) {
+      const ep = e.isWg ? readEndpoint(e.lc.config) : null;
+      const oldHost = e.lc.hostName || (ep && ep.host) || rootHost;
+
+      if (e.isWg && (ip || port)) {
+        if (ep) {
+          const newPort = port || ep.port || 51820;
+          e.lc.config = e.lc.config.replace(ENDPOINT_RE, (m, pre) => `${pre}${fmtHost(ip || ep.host)}:${newPort}`);
+        } else {
+          warnings.push(`не удалось разобрать Endpoint в «${e.container}»`);
+        }
+      }
+      if (ip && oldHost && oldHost !== ip) replaceHost(e.lc, oldHost, ip);
+      if (ip && e.isWg) e.lc.hostName = ip;
+
+      if (port && e.isWg) {
+        e.lc.port = typeof e.lc.port === 'string' ? String(port) : port;
+        e.p.port = typeof e.p.port === 'number' ? port : String(port);
+      } else if (port) {
+        warnings.push(`порт у «${e.container}» не меняется: поддерживаются только AmneziaWG и WireGuard`);
+      }
+      if (ip || port || typeof e.p.last_config !== 'string') saveLastConfig(e);
+    }
+    if (ip) cfg.hostName = ip;
+  }
+
+  function describe(cfg) {
+    const entries = protocols(cfg);
+    const main = entries.find((e) => e.container === cfg.defaultContainer) || entries[0];
+    const ep = main && main.isWg ? readEndpoint(main.lc.config) : null;
+    const host = (ep && ep.host) || (main && main.lc.hostName) || cfg.hostName || '';
+    const port = (ep && ep.port) || (main && (main.lc.port || main.p.port)) || '';
+    return {
+      host,
+      port,
+      addr: host ? (port ? `${fmtHost(host)}:${port}` : fmtHost(host)) : '—',
+      client: main && typeof main.lc.client_ip === 'string' ? main.lc.client_ip : '',
+      containers: (Array.isArray(cfg.containers) ? cfg.containers : []).map((c) => c && c.container).filter(Boolean),
+    };
+  }
+
+  function toConf(cfg) {
+    const wg = protocols(cfg).filter((e) => e.isWg);
+    const e = wg.find((x) => x.container === cfg.defaultContainer) || wg[0];
+    if (!e) {
+      const list = describe(cfg).containers.join(', ') || 'нет';
+      fail(`в ключе нет готового конфига AmneziaWG или WireGuard (контейнеры: ${list}). `
+         + 'Ключ с полным доступом содержит только доступ к серверу, а не клиентский конфиг.');
+    }
+    let text = e.lc.config.replace(/\r/g, '')
+      .replace(/\$PRIMARY_DNS/g, cfg.dns1 || '1.1.1.1')
+      .replace(/\$SECONDARY_DNS/g, cfg.dns2 || '1.0.0.1');
+    if (e.lc.mtu && !/^[ \t]*MTU[ \t]*=/mi.test(text)) {
+      text = text.replace(/^([ \t]*Address[ \t]*=.*)$/mi, `$1\nMTU = ${e.lc.mtu}`);
+    }
+    return text.trimEnd() + '\n';
+  }
+
+  function validateParams({ ip, port, name }) {
+    const res = {};
+    const ipStr = String(ip || '').trim().replace(/^\[|\]$/g, '');
+    if (ipStr) {
+      const v4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(ipStr);
+      const ok = v4 ? v4.slice(1).every((n) => Number(n) <= 255)
+                    : /^[0-9A-Za-z.:-]+$/.test(ipStr) && /[A-Za-z:]/.test(ipStr);
+      if (!ok) fail(`введите IP целиком, например 89.124.114.165 (сейчас: ${ipStr})`, 'ip');
+      res.ip = ipStr;
+    }
+    const portStr = String(port || '').trim();
+    if (portStr) {
+      const n = Number(portStr);
+      if (!/^\d+$/.test(portStr) || n < 1 || n > 65535) fail('порт — число от 1 до 65535', 'port');
+      res.port = n;
+    }
+    const nameStr = String(name || '').trim();
+    if (nameStr) res.name = nameStr;
+    return res;
+  }
+
+  // Главная функция: текст на входе -> результат и сводка
+  async function convert(text, opts = {}) {
+    const src = String(text || '').replace(/^\uFEFF/, '');
+    if (!src.trim()) return { empty: true };
+
+    const detected = !opts.inFormat || opts.inFormat === 'auto';
+    const inFormat = detected ? detectFormat(src) : opts.inFormat;
+    const cfg = inFormat === 'link' ? await decodeLink(src)
+              : inFormat === 'json' ? parseJson(src)
+              : fromConf(src);
+    if (!cfg || typeof cfg !== 'object' || Array.isArray(cfg)) fail('это не ключ AmneziaVPN');
+
+    const origName = typeof cfg.description === 'string' ? cfg.description : '';
+    const before = describe(cfg);
+    const outFormat = FORMATS.includes(opts.outFormat) ? opts.outFormat : 'link';
+    const base = { inFormat, detected, before, origName, outFormat };
+
+    let params;
+    try {
+      params = validateParams(opts);
+    } catch (e) {
+      if (e instanceof UserError) return { ...base, error: e };
+      throw e;
+    }
+
+    const warnings = [];
+    applyChanges(cfg, params, warnings);
+    if (params.name) cfg.description = params.name;
+    if (!cfg.description) cfg.description = cfg.hostName || 'Server';
+    const after = describe(cfg);
+
+    let out;
+    try {
+      out = outFormat === 'link' ? await encodeLink(cfg)
+          : outFormat === 'json' ? JSON.stringify(cfg, null, 4)
+          : toConf(cfg).trimEnd();
+    } catch (e) {
+      if (e instanceof UserError) return { ...base, after, name: cfg.description, error: e, warnings };
+      throw e;
+    }
+    if (params.name && outFormat === 'conf') {
+      warnings.push('в .conf имя сервера не сохраняется: приложения берут его из имени файла');
+    }
+    return { ...base, after, out, name: cfg.description, warnings };
+  }
+
+  globalThis.AmneziaKey = { convert, UserError, FORMATS };
+})();
+</script>
+
+<script>
+(function () {
+  'use strict';
+
+  const { convert } = globalThis.AmneziaKey;
+  const $ = (id) => document.getElementById(id);
+
+  const input = $('input');
+  const output = $('output');
+  const ip = $('ip');
+  const port = $('port');
+  const nameEl = $('name');
+  const copyBtn = $('copy');
+  const dlBtn = $('download');
+  const statusEl = $('status');
+  const detectedEl = $('detected');
+  const outHint = $('out-hint');
+  const route = $('route');
+  const rowNew = $('row-new');
+  const fileInput = $('file');
+
+  const IN_LABELS = { link: 'ссылка vpn://', json: 'JSON', conf: 'конфиг .conf' };
+  const EXT = { link: 'vpn', json: 'json', conf: 'conf' };
+  const OUT_HINTS = {
+    link: 'Ключ для приложения AmneziaVPN',
+    json: 'Раскодированный ключ: для просмотра и правки',
+    conf: 'Конфиг для AmneziaWG, WireGuard и роутеров',
+  };
+
+  let seq = 0;
+  let timer = 0;
+  let last = null;
+
+  // Где открыта страница: во вьюере claude.ai (есть window.claude) или как локальный файл.
+  // Во вьюере файлы сохраняются только через платформу, и из форматов ей разрешён лишь .json.
+  const host = window.claude && typeof window.claude.use === 'function' ? window.claude : null;
+  let downloads = null;
+  if (host) {
+    host.use('downloads').then((ns) => { downloads = ns; schedule(0); }).catch(() => { downloads = null; });
+  }
+  const canSave = (fmt) => (host ? Boolean(downloads) && fmt === 'json' : true);
+
+  const checked = (name) => document.querySelector(`input[name="${name}"]:checked`).value;
+  const cap = (s) => String(s).charAt(0).toUpperCase() + String(s).slice(1);
+
+  function schedule(delay) {
+    clearTimeout(timer);
+    timer = setTimeout(run, delay);
+  }
+
+  async function run() {
+    const my = ++seq;
+    const outFormat = checked('out');
+    let res;
+    try {
+      res = await convert(input.value, {
+        inFormat: checked('in'), outFormat, ip: ip.value, port: port.value, name: nameEl.value,
+      });
+    } catch (e) {
+      res = { fatal: e };
+    }
+    if (my !== seq) return; // пришёл результат устаревшего запроса
+    render(res, outFormat);
+  }
+
+  function setMessages(list) {
+    statusEl.replaceChildren(...list.map(({ kind, text }) => {
+      const p = document.createElement('p');
+      p.className = `msg ${kind}`;
+      p.textContent = text;
+      return p;
+    }));
+  }
+
+  function setPlaceholders(before, origName) {
+    ip.placeholder = before && before.host ? before.host : 'не менять';
+    port.placeholder = before && before.port ? String(before.port) : 'не менять';
+    nameEl.placeholder = origName || 'не менять';
+  }
+
+  function resetView() {
+    last = null;
+    output.value = '';
+    copyBtn.disabled = true;
+    dlBtn.disabled = true;
+    detectedEl.textContent = '';
+    route.hidden = true;
+    $('meta').hidden = true;
+    setPlaceholders(null, '');
+  }
+
+  function renderSummary(res) {
+    const b = res.before;
+    const a = res.after || res.before;
+    const changed = a.addr !== b.addr;
+    route.hidden = false;
+    route.classList.toggle('changed', changed);
+    $('route-old-label').textContent = changed ? 'было' : 'адрес сервера';
+    $('addr-old').textContent = b.addr;
+    rowNew.hidden = !changed;
+    $('addr-new').textContent = a.addr;
+
+    $('meta').hidden = false;
+    $('m-name').textContent = res.name || res.origName || '—';
+    $('m-proto').textContent = a.containers.join(', ') || '—';
+    $('m-client-row').hidden = !a.client;
+    $('m-client').textContent = a.client;
+  }
+
+  function render(res, outFormat) {
+    dlBtn.textContent = `Скачать .${EXT[outFormat]}`;
+    dlBtn.hidden = !canSave(outFormat);
+    outHint.textContent = OUT_HINTS[outFormat]
+      + (host && downloads && outFormat !== 'json' ? `. Здесь файл .${EXT[outFormat]} не сохранить — скопируйте текст` : '');
+    ip.removeAttribute('aria-invalid');
+    port.removeAttribute('aria-invalid');
+    output.classList.remove('stale');
+    input.classList.toggle('key', res.inFormat === 'link');
+    output.classList.toggle('key', outFormat === 'link');
+
+    if (res.empty) {
+      resetView();
+      setMessages([]);
+      return;
+    }
+    if (res.fatal) {
+      resetView();
+      const e = res.fatal;
+      const text = e && e.name === 'UserError' ? cap(e.message) : `Непредвиденная ошибка: ${(e && e.message) || e}`;
+      setMessages([{ kind: 'error', text }]);
+      return;
+    }
+
+    detectedEl.textContent = `${res.detected ? 'Распознано' : 'Разобрано как'}: ${IN_LABELS[res.inFormat]}`;
+    setPlaceholders(res.before, res.origName);
+    renderSummary(res);
+
+    const messages = (res.warnings || []).map((w) => ({ kind: 'warn', text: cap(w) }));
+
+    if (res.error) {
+      const field = res.error.field === 'ip' ? ip : res.error.field === 'port' ? port : null;
+      const typing = field && document.activeElement === field;
+      if (field && !typing) field.setAttribute('aria-invalid', 'true');
+      messages.unshift({ kind: typing ? 'pending' : 'error', text: cap(res.error.message) });
+      if (field) {
+        output.classList.add('stale'); // старый результат виден, но неактуален
+      } else {
+        output.value = '';
+      }
+      last = null;
+      copyBtn.disabled = true;
+      dlBtn.disabled = true;
+      setMessages(messages);
+      return;
+    }
+
+    output.value = res.out;
+    last = res;
+    copyBtn.disabled = false;
+    dlBtn.disabled = false;
+    setMessages(messages);
+  }
+
+  // ---------- действия ----------
+
+  copyBtn.addEventListener('click', async () => {
+    if (!output.value) return;
+    let ok = true;
+    try {
+      await navigator.clipboard.writeText(output.value);
+    } catch {
+      output.focus();
+      output.select();
+      ok = document.execCommand('copy');
+    }
+    copyBtn.textContent = ok ? 'Скопировано' : 'Не удалось скопировать';
+    setTimeout(() => { copyBtn.textContent = 'Копировать'; }, 1600);
+  });
+
+  dlBtn.addEventListener('click', async () => {
+    if (!last) return;
+    const fmt = last.outFormat;
+    const a = last.after || last.before;
+    const id = (a.client || '').split(/[\s,/]/)[0] || a.host || 'key';
+    const prefix = fmt === 'conf' ? 'awg' : 'amnezia';
+    // имя туннеля в WireGuard/AmneziaWG берётся из имени файла: только латиница и до 15 символов
+    let base = `${prefix}-${id}`.replace(/[^A-Za-z0-9_=+.-]+/g, '-');
+    if (fmt === 'conf') base = base.slice(0, 15);
+    const filename = `${base}.${EXT[fmt]}`;
+    const data = output.value + '\n';
+
+    if (host) {
+      // во вьюере claude.ai файл отдаёт платформа, зритель подтверждает сохранение
+      if (!downloads || fmt !== 'json') return;
+      try {
+        await downloads.save({ filename, data });
+      } catch (e) {
+        const code = e && e.code;
+        if (code === 'declined') return;
+        if (code === 'rate_limited') {
+          dlBtn.textContent = 'Окно сохранения уже открыто';
+          setTimeout(() => { dlBtn.textContent = `Скачать .${EXT[checked('out')]}`; }, 1600);
+          return;
+        }
+        downloads = null; // сохранение здесь недоступно — прячем кнопку
+        schedule(0);
+      }
+      return;
+    }
+
+    const blob = new Blob([data], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  });
+
+  $('open').addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', async () => {
+    const file = fileInput.files && fileInput.files[0];
+    if (!file) return;
+    input.value = await file.text();
+    fileInput.value = '';
+    schedule(0);
+  });
+
+  $('clear').addEventListener('click', () => {
+    input.value = '';
+    schedule(0);
+    input.focus();
+  });
+
+  input.addEventListener('dragover', (e) => {
+    if (e.dataTransfer && [...e.dataTransfer.types].includes('Files')) {
+      e.preventDefault();
+      input.classList.add('drag');
+    }
+  });
+  input.addEventListener('dragleave', () => input.classList.remove('drag'));
+  input.addEventListener('drop', async (e) => {
+    input.classList.remove('drag');
+    const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (!file) return; // перетащили текст — пусть браузер вставит его сам
+    e.preventDefault();
+    input.value = await file.text();
+    schedule(0);
+  });
+
+  output.addEventListener('click', () => { if (output.value) output.select(); });
+
+  input.addEventListener('input', () => schedule(150));
+  for (const el of [ip, port, nameEl]) {
+    el.addEventListener('input', () => schedule(300));
+    el.addEventListener('blur', () => schedule(0));
+  }
+  document.querySelectorAll('input[type="radio"]').forEach((r) => r.addEventListener('change', () => schedule(0)));
+
+  schedule(0);
+})();
+</script>
+</body>
+</html>
